@@ -1,0 +1,206 @@
+from .app import data_path
+from .optionswin import DCOptionsWin
+from .camera import Camera, CameraControl, getCameraDevices
+from .camlabel import CamLabel
+
+from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtGui import QImage, QIcon
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QAction, QVBoxLayout, QHBoxLayout, QMessageBox, QFileDialog, QLabel, QPushButton, QComboBox
+
+import logging
+import os
+import glob
+import sys
+import time
+
+_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+class DCAction(QAction):
+	def __init__(self, parent, text, action, shortcut=None, enabled=True):
+		super().__init__(text, parent)
+		if shortcut:
+			self.setShortcut(shortcut)
+		self.triggered.connect(action)
+		self.setEnabled(enabled)
+
+class DCMainWin(QMainWindow):
+	def __init__(self):
+		super().__init__()
+		
+		self.options = DCOptionsWin(self)
+		self.options.saveSignal.connect(self.saveOptionsSlot)
+		
+		self.devices = []
+		self.deviceComboBox = QComboBox()
+		self.cfgFiles = []
+		self.cfgComboBox = QComboBox()
+		
+		self.camControl = None
+		self.camLabel = CamLabel(self)
+		self.imgLabel = CamLabel(self)
+		
+		self.createWindow()
+		self.createMenu()
+		self.createLayout()
+	
+	def createWindow(self):
+		self.setWindowIcon(QIcon(os.path.join(data_path, "img", "icon.png")))
+		self.show()
+	
+	def createMenu(self):
+		self.mainMenu = self.menuBar()
+		
+		fileMenu = self.mainMenu.addMenu("File")
+		self.snapAction = DCAction(self, "Snap", self.on_snapAction, "Space", False)
+		fileMenu.addAction(self.snapAction)
+		self.saveAction = DCAction(self, "Save", self.on_saveAction, "Ctrl+S", False)
+		fileMenu.addAction(self.saveAction)
+		self.saveAsAction = DCAction(self, "Save As...", self.on_saveAsAction, "Ctrl+Shift+S", False)
+		fileMenu.addAction(self.saveAsAction)
+		fileMenu.addAction(DCAction(self, "Quit", lambda: self.close(), "Ctrl+Q"))
+		
+		toolsMenu = self.mainMenu.addMenu("Tools")
+		toolsMenu.addAction(DCAction(self, "Options", self.options.show))
+		
+		helpMenu = self.mainMenu.addMenu("Help")
+		helpMenu.addAction(DCAction(self, "About", self.on_aboutAction))
+		helpMenu.addAction(DCAction(self, "About Qt", lambda: QMessageBox.aboutQt(self)))
+	
+	def createLayout(self):
+		w = QWidget()
+		vbox = QVBoxLayout()
+		w.setLayout(vbox)
+		
+		hbox = QHBoxLayout()
+		self.updateDevices()
+		hbox.addWidget(QLabel("Device:"))
+		self.deviceComboBox.currentIndexChanged.connect(self.deviceChangedSlot)
+		hbox.addWidget(self.deviceComboBox)
+		hbox.addStretch()
+		
+		self.updateCfgFiles()
+		hbox.addWidget(QLabel("Config File:"))
+		self.cfgComboBox.currentIndexChanged.connect(self.cfgChangedSlot)
+		hbox.addWidget(self.cfgComboBox)
+		vbox.addLayout(hbox)
+		
+		self.setCamera(self.devices[0], self.cfgFiles[0])
+		vbox.addWidget(self.camLabel)
+		self.imgLabel.setImage(QImage(os.path.join(data_path, "img", "images.png")))
+		vbox.addWidget(self.imgLabel)
+		
+		self.setCentralWidget(w)
+	
+	def updateDevices(self):
+		self.devices = [None] + getCameraDevices()
+		
+		# Update QComboBox
+		items = ["None"] + [device.name for device in self.devices[1:]]
+		self.deviceComboBox.clear()
+		self.deviceComboBox.addItems(items)
+	
+	def updateCfgFiles(self):
+		path = os.path.join(self.options.cfgPath, "*.pfs")
+		self.cfgFiles = [None] + glob.glob(path)
+		
+		# Update QComboBox
+		self.cfgComboBox.clear()
+		items = ["Default"] + [os.path.split(f)[1] for f in self.cfgFiles[1:]]
+		self.cfgComboBox.addItems(items)
+	
+	def close(self):
+		if self.camControl:
+			self.camControl.stopGrab()
+		super().close()
+	
+	def snapshotPath(self):
+		return self.options.outputPath + "/%d.jpg" % int(time.time()*1000)
+	
+	def on_snapAction(self):
+		self.snapAction.setEnabled(False)
+		image = self.camControl.snapshot()
+		self.imgLabel.setImage(image)
+		self.snapAction.setEnabled(True)
+		
+		# Enable image saving
+		self.saveAction.setEnabled(True)
+		self.saveAsAction.setEnabled(True)
+	
+	def saveImage(self, path):
+		image = self.imgLabel.image()
+		if image:
+			logging.debug("saving '%s'" % path)
+			image.save(path)
+	
+	def on_saveAction(self):
+		path = self.snapshotPath()
+		self.saveImage(path)
+	
+	def on_saveAsAction(self):
+		path = QFileDialog.getSaveFileName(
+			self,
+			"Save Image",
+			self.snapshotPath(), "Image File (*.png *.jpg *.bmp)"
+		)
+		if path[0]:
+			self.saveImage(path[0])
+	
+	def on_aboutAction(self):
+		msg = (
+			"{} v{}<br>"
+			"<br>"
+			"Copyright (C) 2018 <a href=\"mailto:eero.molkoselka@gmail.com\">Eero Molkoselkä</a><br>"
+			"<br>"
+			"This software is licensed under WTFPL. See COPYING file for details.<br>"
+		)
+		QMessageBox.about(
+			self,
+			"About %s" % QApplication.applicationName(),
+			msg.format(QApplication.applicationName(), QApplication.applicationVersion())
+		)
+	
+	def setCamera(self, device, cfg):
+		# Stop the current camera
+		if self.camControl:
+			self.camControl.stopGrab()
+			self.camControl = None
+		
+		# Show blank image if we don't have camera
+		if device == None:
+			self.camLabel.setImage(QImage(os.path.join(data_path, "img", "camera.png")))
+			self.snapAction.setEnabled(False)
+			return True
+		
+		# Try to open camera
+		try:
+			kwargs = {"snapParamsFile": cfg} if cfg else {}
+			cam = Camera(device, **kwargs)
+			self.camControl = CameraControl(self, self.camLabel, cam)
+			self.camControl.startGrab()
+		except:
+			QMessageBox.critical(self, "Couldn't Open Camera", "Couldn't Open Camera '%s'." % device.name)
+			self.camControl = None
+			self.setCamera(None, cfg)
+			return False
+		
+		# Enable snapping
+		self.snapAction.setEnabled(True)
+		return True
+	
+	def updateCamera(self):
+		di = self.deviceComboBox.currentIndex()
+		cfgi = self.cfgComboBox.currentIndex()
+		if di >= 0 and cfgi >= 0:
+			self.setCamera(self.devices[di], self.cfgFiles[cfgi])
+	
+	@pyqtSlot(int)
+	def deviceChangedSlot(self, index):
+		self.updateCamera()
+	
+	@pyqtSlot(int)
+	def cfgChangedSlot(self, index):
+		self.updateCamera()
+	
+	@pyqtSlot()
+	def saveOptionsSlot(self):
+		self.updateCfgFiles()
