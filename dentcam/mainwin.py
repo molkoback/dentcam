@@ -130,6 +130,10 @@ class DCMainWin(QMainWindow):
 		image = self.imgLabel.image()
 		if image:
 			logging.debug("saving '%s'" % path)
+			image = image.mirrored(
+				horizontal=self.options.flipHoriz,
+				vertical=self.options.flipVert
+			)
 			image.save(path)
 	
 	def on_saveAction(self):
