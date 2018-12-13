@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QApplication
 
 import os
 
-org = "DentCam"
+org = "DentSaver"
 name = "DentCam"
 version = "1.2.0"
 

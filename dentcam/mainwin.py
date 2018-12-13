@@ -90,6 +90,7 @@ class MainWin(QMainWindow):
 		vbox.addWidget(self.imgLabel)
 		
 		self.setCentralWidget(w)
+		self.restoreGeometry(self.options.geometry)
 	
 	def updateDevices(self):
 		self.devices = [None] + getCameraDevices()
@@ -199,6 +200,10 @@ class MainWin(QMainWindow):
 		cfgi = self.cfgComboBox.currentIndex()
 		if di >= 0 and cfgi >= 0:
 			self.setCamera(self.devices[di], self.cfgFiles[cfgi])
+	
+	def closeEvent(self, e):
+		self.options.geometry = self.saveGeometry()
+		self.options.save()
 	
 	@pyqtSlot(int)
 	def deviceChangedSlot(self, index):

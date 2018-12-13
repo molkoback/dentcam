@@ -1,6 +1,6 @@
 from .camera import getCameraDevices
 
-from PyQt5.QtCore import QSettings, pyqtSignal
+from PyQt5.QtCore import QSettings, pyqtSignal, QByteArray
 from PyQt5.QtWidgets import QDialog, QFileDialog, QApplication, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox, QLabel, QCheckBox, QPushButton, QComboBox
 
 class OptionsWin(QDialog):
@@ -11,6 +11,7 @@ class OptionsWin(QDialog):
 	def __init__(self, parent):
 		super().__init__(parent)
 		
+		self.geometry = b""
 		self.outputPath = "."
 		self.cfgPath = "."
 		
@@ -20,7 +21,7 @@ class OptionsWin(QDialog):
 		
 		self.settings = self.createSettings()
 		self.createLayout()
-		self.loadSettings()
+		self.load()
 	
 	@property
 	def autoSave(self):
@@ -37,7 +38,8 @@ class OptionsWin(QDialog):
 	def createSettings(self):
 		return QSettings(QApplication.organizationName(), QApplication.applicationName())
 	
-	def loadSettings(self):
+	def load(self):
+		self.geometry = self.settings.value("mainwin/geometry", b"")
 		self.outputPath = self.settings.value("images/save_path", ".")
 		self.autoSaveCheckBox.setChecked(bool(self.settings.value("images/auto_save", False)))
 		self.flipHorizCheckBox.setChecked(bool(self.settings.value("images/flip_horiz", False)))
@@ -45,7 +47,8 @@ class OptionsWin(QDialog):
 		self.cfgPath = self.settings.value("pfs/pfs_path", ".")
 		self.loadSignal.emit()
 	
-	def saveSettings(self):
+	def save(self):
+		self.settings.setValue("mainwin/geometry", self.geometry)
 		self.settings.setValue("images/save_path", self.outputPath)
 		self.settings.setValue("images/auto_save", int(self.autoSave))
 		self.settings.setValue("images/flip_horiz", int(self.flipHoriz))
@@ -100,9 +103,9 @@ class OptionsWin(QDialog):
 			self.cfgPath = path
 	
 	def on_okButtonClicked(self):
-		self.saveSettings()
+		self.save()
 		self.hide()
 	
 	def on_cancelButtonClicked(self):
-		self.loadSettings()
+		self.load()
 		self.hide()
