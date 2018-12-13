@@ -34,6 +34,7 @@ class MainWin(QMainWindow):
 		self.deviceComboBox = QComboBox()
 		self.cfgFiles = []
 		self.cfgComboBox = QComboBox()
+		self.deviceCfg = {}
 		
 		self.camControl = None
 		self.camLabel = CamLabel(self)
@@ -195,24 +196,32 @@ class MainWin(QMainWindow):
 		self.snapAction.setEnabled(True)
 		return True
 	
-	def updateCamera(self):
-		di = self.deviceComboBox.currentIndex()
-		cfgi = self.cfgComboBox.currentIndex()
-		if di >= 0 and cfgi >= 0:
-			self.setCamera(self.devices[di], self.cfgFiles[cfgi])
-	
-	def closeEvent(self, e):
-		self.options.geometry = self.saveGeometry()
-		self.options.save()
-	
 	@pyqtSlot(int)
 	def deviceChangedSlot(self, index):
-		self.updateCamera()
+		di = self.deviceComboBox.currentIndex()
+		cfgi = self.cfgComboBox.currentIndex()
+		if di < 0 or cfgi < 0:
+			return
+		
+		if di in self.deviceCfg:
+			cfgi = self.deviceCfg[di]
+		self.cfgComboBox.setCurrentIndex(cfgi)
+		self.setCamera(self.devices[di], self.cfgFiles[cfgi])
 	
 	@pyqtSlot(int)
 	def cfgChangedSlot(self, index):
-		self.updateCamera()
+		di = self.deviceComboBox.currentIndex()
+		cfgi = self.cfgComboBox.currentIndex()
+		if di < 0 or cfgi < 0:
+			return
+		
+		self.deviceCfg[di] = cfgi
+		self.setCamera(self.devices[di], self.cfgFiles[cfgi])
 	
 	@pyqtSlot()
 	def saveOptionsSlot(self):
 		self.updateCfgFiles()
+	
+	def closeEvent(self, e):
+		self.options.geometry = self.saveGeometry()
+		self.options.save()
