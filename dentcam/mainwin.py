@@ -5,7 +5,7 @@ from .camlabel import CamLabel
 
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QImage, QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QAction, QVBoxLayout, QHBoxLayout, QMessageBox, QFileDialog, QLabel, QPushButton, QComboBox
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QAction, QVBoxLayout, QHBoxLayout, QMessageBox, QFileDialog, QLabel, QPushButton, QComboBox, QLineEdit
 
 import functools
 import logging
@@ -36,6 +36,8 @@ class MainWin(QMainWindow):
 		self.cfgFiles = []
 		self.cfgComboBox = QComboBox()
 		self.deviceCfg = {}
+		
+		self.folderLineEdit = QLineEdit()
 		
 		self.camControl = None
 		self.camLabel = CamLabel(self)
@@ -74,16 +76,22 @@ class MainWin(QMainWindow):
 		w.setLayout(vbox)
 		
 		hbox = QHBoxLayout()
+		
 		self.updateDevices()
 		hbox.addWidget(QLabel("Device:"))
 		self.deviceComboBox.currentIndexChanged.connect(self.deviceChangedSlot)
 		hbox.addWidget(self.deviceComboBox)
-		hbox.addStretch()
 		
 		self.updateCfgFiles()
 		hbox.addWidget(QLabel("Config File:"))
 		self.cfgComboBox.currentIndexChanged.connect(self.cfgChangedSlot)
 		hbox.addWidget(self.cfgComboBox)
+		
+		hbox.addStretch()
+		hbox.addWidget(QLabel("Folder:"))
+		hbox.addWidget(self.folderLineEdit)
+		self.folderLineEdit.returnPressed.connect(lambda: self.folderLineEdit.clearFocus())
+		
 		vbox.addLayout(hbox)
 		
 		self.setCamera(self.devices[0], self.cfgFiles[0])
@@ -137,8 +145,12 @@ class MainWin(QMainWindow):
 		if self.options.autoSave:
 			self.on_saveAction()
 	
-	def snapshotPath(self):
-		return self.options.outputPath + "/%d.jpg" % int(time.time()*1000)
+	def savePath(self):
+		path = os.path.join(self.options.outputPath, self.folderLineEdit.text())
+		if not os.path.exists(path):
+			os.mkdir(path)
+		fn = os.path.join(path, "%d.jpg" % int(time.time()*1000))
+		return fn
 	
 	def saveImage(self, path):
 		image = self.imgLabel.image()
@@ -151,7 +163,7 @@ class MainWin(QMainWindow):
 			image.save(path)
 	
 	def on_saveAction(self):
-		path = self.snapshotPath()
+		path = self.savePath()
 		self.saveImage(path)
 	
 	def on_saveAsAction(self):
