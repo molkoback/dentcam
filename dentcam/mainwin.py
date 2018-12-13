@@ -7,6 +7,7 @@ from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QImage, QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QAction, QVBoxLayout, QHBoxLayout, QMessageBox, QFileDialog, QLabel, QPushButton, QComboBox
 
+import functools
 import logging
 import os
 import glob
@@ -100,6 +101,11 @@ class MainWin(QMainWindow):
 		items = ["None"] + [device.name for device in self.devices[1:]]
 		self.deviceComboBox.clear()
 		self.deviceComboBox.addItems(items)
+		
+		# Add shortcuts for cameras
+		for i in range(len(self.devices)):
+			f = functools.partial( self.deviceComboBox.setCurrentIndex, i)
+			self.addAction(Action(self, "", f, "Ctrl+%d" % i))
 	
 	def updateCfgFiles(self):
 		path = os.path.join(self.options.cfgPath, "*.pfs")
@@ -109,6 +115,9 @@ class MainWin(QMainWindow):
 		self.cfgComboBox.clear()
 		items = ["Default"] + [os.path.split(f)[1] for f in self.cfgFiles[1:]]
 		self.cfgComboBox.addItems(items)
+		
+		# Reset device specific config
+		self.deviceCfg = {}
 	
 	def close(self):
 		if self.camControl:
