@@ -214,4 +214,6 @@ def getCameraDevices(maxDevices=-1):
 	pylonDeviceInfos = tlFactory.EnumerateDevices()
 	if maxDevices >= 0:
 		pylonDeviceInfos = pylonDeviceInfos[0:maxDevices]
-	return [Device(pdi) for pdi in pylonDeviceInfos]
+	devices = [Device(pdi) for pdi in pylonDeviceInfos]
+	devices.sort(key=lambda d: d.name)
+	return devices
