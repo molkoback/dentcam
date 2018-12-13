@@ -112,7 +112,7 @@ class MainWin(QMainWindow):
 		
 		# Add shortcuts for cameras
 		for i in range(len(self.devices)):
-			f = functools.partial( self.deviceComboBox.setCurrentIndex, i)
+			f = functools.partial(self.deviceComboBox.setCurrentIndex, i)
 			self.addAction(Action(self, "", f, "Ctrl+%d" % i))
 	
 	def updateCfgFiles(self):

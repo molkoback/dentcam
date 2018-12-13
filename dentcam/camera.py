@@ -9,8 +9,6 @@ from pypylon import pylon
 import logging
 import os
 
-_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-
 class Converter:
 	def __init__(self):
 		self.pylonConverter = pylon.ImageFormatConverter()
