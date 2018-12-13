@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from dentcam.app import DCApp
-from dentcam.mainwin import DCMainWin
+from dentcam.app import App
+from dentcam.mainwin import MainWin
 
 import sys
 import logging
@@ -22,6 +22,6 @@ def initLogs():
 
 if __name__ == "__main__":
 	initLogs()
-	app = DCApp(sys.argv)
-	win = DCMainWin()
+	app = App(sys.argv)
+	win = MainWin()
 	sys.exit(app.exec_())

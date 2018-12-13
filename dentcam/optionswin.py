@@ -3,7 +3,7 @@ from .camera import getCameraDevices
 from PyQt5.QtCore import QSettings, pyqtSignal
 from PyQt5.QtWidgets import QDialog, QFileDialog, QApplication, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox, QLabel, QCheckBox, QPushButton, QComboBox
 
-class DCOptionsWin(QDialog):
+class OptionsWin(QDialog):
 	
 	saveSignal = pyqtSignal()
 	loadSignal = pyqtSignal()
@@ -14,12 +14,17 @@ class DCOptionsWin(QDialog):
 		self.outputPath = "."
 		self.cfgPath = "."
 		
+		self.autoSaveCheckBox = QCheckBox()
 		self.flipHorizCheckBox = QCheckBox()
 		self.flipVertCheckBox = QCheckBox()
 		
 		self.settings = self.createSettings()
 		self.createLayout()
 		self.loadSettings()
+	
+	@property
+	def autoSave(self):
+		return self.autoSaveCheckBox.isChecked()
 	
 	@property
 	def flipHoriz(self):
@@ -34,6 +39,7 @@ class DCOptionsWin(QDialog):
 	
 	def loadSettings(self):
 		self.outputPath = self.settings.value("images/save_path", ".")
+		self.autoSaveCheckBox.setChecked(bool(self.settings.value("images/auto_save", False)))
 		self.flipHorizCheckBox.setChecked(bool(self.settings.value("images/flip_horiz", False)))
 		self.flipVertCheckBox.setChecked(bool(self.settings.value("images/flip_vert", False)))
 		self.cfgPath = self.settings.value("pfs/pfs_path", ".")
@@ -41,6 +47,7 @@ class DCOptionsWin(QDialog):
 	
 	def saveSettings(self):
 		self.settings.setValue("images/save_path", self.outputPath)
+		self.settings.setValue("images/auto_save", int(self.autoSave))
 		self.settings.setValue("images/flip_horiz", int(self.flipHoriz))
 		self.settings.setValue("images/flip_vert", int(self.flipVert))
 		self.settings.setValue("pfs/pfs_path", self.cfgPath)
@@ -52,6 +59,7 @@ class DCOptionsWin(QDialog):
 		
 		imagesGroupBox = QGroupBox("Saved Images")
 		form = QFormLayout()
+		form.addRow(QLabel("Auto Save"), self.autoSaveCheckBox)
 		form.addRow(QLabel("Flip Horizontally"), self.flipHorizCheckBox)
 		form.addRow(QLabel("Flip Vertically"), self.flipVertCheckBox)
 		outputPathButton = QPushButton("Browse...")

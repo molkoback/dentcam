@@ -1,5 +1,5 @@
 from .app import data_path
-from .optionswin import DCOptionsWin
+from .optionswin import OptionsWin
 from .camera import Camera, CameraControl, getCameraDevices
 from .camlabel import CamLabel
 
@@ -15,7 +15,7 @@ import time
 
 _data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
-class DCAction(QAction):
+class Action(QAction):
 	def __init__(self, parent, text, action, shortcut=None, enabled=True):
 		super().__init__(text, parent)
 		if shortcut:
@@ -23,11 +23,11 @@ class DCAction(QAction):
 		self.triggered.connect(action)
 		self.setEnabled(enabled)
 
-class DCMainWin(QMainWindow):
+class MainWin(QMainWindow):
 	def __init__(self):
 		super().__init__()
 		
-		self.options = DCOptionsWin(self)
+		self.options = OptionsWin(self)
 		self.options.saveSignal.connect(self.saveOptionsSlot)
 		
 		self.devices = []
@@ -51,20 +51,20 @@ class DCMainWin(QMainWindow):
 		self.mainMenu = self.menuBar()
 		
 		fileMenu = self.mainMenu.addMenu("File")
-		self.snapAction = DCAction(self, "Snap", self.on_snapAction, "Space", False)
+		self.snapAction = Action(self, "Snap", self.on_snapAction, "Space", False)
 		fileMenu.addAction(self.snapAction)
-		self.saveAction = DCAction(self, "Save", self.on_saveAction, "Ctrl+S", False)
+		self.saveAction = Action(self, "Save", self.on_saveAction, "Ctrl+S", False)
 		fileMenu.addAction(self.saveAction)
-		self.saveAsAction = DCAction(self, "Save As...", self.on_saveAsAction, "Ctrl+Shift+S", False)
+		self.saveAsAction = Action(self, "Save As...", self.on_saveAsAction, "Ctrl+Shift+S", False)
 		fileMenu.addAction(self.saveAsAction)
-		fileMenu.addAction(DCAction(self, "Quit", lambda: self.close(), "Ctrl+Q"))
+		fileMenu.addAction(Action(self, "Quit", lambda: self.close(), "Ctrl+Q"))
 		
 		toolsMenu = self.mainMenu.addMenu("Tools")
-		toolsMenu.addAction(DCAction(self, "Options", self.options.show))
+		toolsMenu.addAction(Action(self, "Options", self.options.show))
 		
 		helpMenu = self.mainMenu.addMenu("Help")
-		helpMenu.addAction(DCAction(self, "About", self.on_aboutAction))
-		helpMenu.addAction(DCAction(self, "About Qt", lambda: QMessageBox.aboutQt(self)))
+		helpMenu.addAction(Action(self, "About", self.on_aboutAction))
+		helpMenu.addAction(Action(self, "About Qt", lambda: QMessageBox.aboutQt(self)))
 	
 	def createLayout(self):
 		w = QWidget()
@@ -113,9 +113,6 @@ class DCMainWin(QMainWindow):
 			self.camControl.stopGrab()
 		super().close()
 	
-	def snapshotPath(self):
-		return self.options.outputPath + "/%d.jpg" % int(time.time()*1000)
-	
 	def on_snapAction(self):
 		self.snapAction.setEnabled(False)
 		image = self.camControl.snapshot()
@@ -125,6 +122,12 @@ class DCMainWin(QMainWindow):
 		# Enable image saving
 		self.saveAction.setEnabled(True)
 		self.saveAsAction.setEnabled(True)
+		
+		if self.options.autoSave:
+			self.on_saveAction()
+	
+	def snapshotPath(self):
+		return self.options.outputPath + "/%d.jpg" % int(time.time()*1000)
 	
 	def saveImage(self, path):
 		image = self.imgLabel.image()
