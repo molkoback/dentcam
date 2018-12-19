@@ -146,7 +146,10 @@ class MainWin(QMainWindow):
 			self.on_saveAction()
 	
 	def savePath(self):
-		path = os.path.join(self.options.outputPath, self.folderLineEdit.text())
+		path = os.path.join(
+			self.options.outputPath,
+			self.folderLineEdit.text().strip()
+		)
 		if not os.path.exists(path):
 			os.mkdir(path)
 		fn = os.path.join(path, "%d.jpg" % int(time.time()*1000))
@@ -154,13 +157,15 @@ class MainWin(QMainWindow):
 	
 	def saveImage(self, path):
 		image = self.imgLabel.image()
-		if image:
-			logging.debug("saving '%s'" % path)
-			image = image.mirrored(
-				horizontal=self.options.flipHoriz,
-				vertical=self.options.flipVert
-			)
-			image.save(path)
+		if not image:
+			return
+		logging.debug("saving '%s'" % path)
+		image = image.mirrored(
+			horizontal=self.options.flipHoriz,
+			vertical=self.options.flipVert
+		)
+		if not image.save(path):
+			QMessageBox.critical(self, "Couldn't Save Image", "Couldn't Save Image '%s'." % path)
 	
 	def on_saveAction(self):
 		path = self.savePath()
