@@ -37,6 +37,7 @@ class MainWin(QMainWindow):
 		
 		self.folderLineEdit = QLineEdit()
 		
+		self.switching = False
 		self.camControl = None
 		self.camLabel = CamLabel(self)
 		self.imgLabel = CamLabel(self)
@@ -178,8 +179,12 @@ class MainWin(QMainWindow):
 		)
 	
 	def setCamera(self, cam):
-		# Stop the current camera
+		if self.switching:
+			return False
+		self.switching = True
 		self.snapAction.setEnabled(False)
+		
+		# Stop the current camera
 		if self.camControl:
 			self.camControl.stopGrab()
 			self.camControl = None
@@ -187,7 +192,7 @@ class MainWin(QMainWindow):
 		# Show blank image if we don't have camera
 		if cam == None:
 			self.camLabel.setImage(QImage(os.path.join(data_path, "img", "camera.png")))
-			self.snapAction.setEnabled(False)
+			self.switching = False
 			return True
 		
 		# Try to open camera
@@ -199,11 +204,11 @@ class MainWin(QMainWindow):
 		except:
 			QMessageBox.critical(self, "Couldn't Open Camera", "Couldn't Open Camera '%s'." % cam.name)
 			self.camControl = None
-			self.setCamera(None)
-			return False
+			return self.setCamera(None)
 		
-		# Enable snapping
+		# Camera opened successfully
 		self.snapAction.setEnabled(True)
+		self.switching = False
 		return True
 	
 	@pyqtSlot(int)
