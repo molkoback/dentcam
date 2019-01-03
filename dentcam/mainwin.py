@@ -148,7 +148,7 @@ class MainWin(QMainWindow):
 			horizontal=self.options.flipHoriz,
 			vertical=self.options.flipVert
 		)
-		if not image.save(path):
+		if not image.save(path, quality=100):
 			QMessageBox.critical(self, "Couldn't Save Image", "Couldn't Save Image '%s'." % path)
 	
 	def on_saveAction(self):
