@@ -4,7 +4,7 @@ import os
 
 org = "DentSaver"
 name = "DentCam"
-version = "1.2.1"
+version = "1.3.0"
 
 data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 

@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QApplication
 
 from pypylon import pylon
 
+import json
 import logging
 import os
 
@@ -26,6 +27,7 @@ class Converter:
 class Camera:
 	def __init__(self, device, **kwargs):
 		self.device = device
+		self.nick = kwargs.get("nick", "")
 		
 		self.grabParamsFile = kwargs.get(
 			"grabParamsFile",
@@ -36,22 +38,27 @@ class Camera:
 			os.path.join(data_path, "pfs", "snap.pfs")
 		)
 		
-		self.pylonCamera = self.createPylonCamera(device)
+		self.pylonCamera = None
 		self.converter = Converter()
 		self.grabbing = False
 	
 	def __repr__(self):
-		return "<Camera: '%s'>" % self.device
+		return "<Camera: '%s'>" % self.name
 	
-	def createPylonCamera(self, device):
-		""" Creates and opens pylon instant camera. """
-		tlFactory = pylon.TlFactory.GetInstance()
-		pylonCamera = pylon.InstantCamera()
-		pylonCamera.Attach(tlFactory.CreateDevice(device.pylonDeviceInfo))
-		return pylonCamera
+	@property
+	def name(self):
+		return self.nick if self.nick else self.device
 	
 	def open(self):
-		self.pylonCamera.Open()
+		tlFactory = pylon.TlFactory.GetInstance()
+		pylonDeviceInfos = tlFactory.EnumerateDevices()
+		for pdi in pylonDeviceInfos:
+			if pdi.GetFriendlyName() == self.device:
+				pylonCamera = pylon.InstantCamera()
+				pylonCamera.Attach(tlFactory.CreateDevice(pdi))
+				self.pylonCamera = pylonCamera
+				return True
+		return False
 	
 	def close(self):
 		self.pylonCamera.Close()
@@ -65,7 +72,7 @@ class Camera:
 	
 	def grab(self):
 		""" Video mode. Yields QImage. """
-		self.open()
+		self.pylonCamera.Open()
 		self.grabbing = True
 		self.loadParams(self.grabParamsFile)
 		
@@ -77,33 +84,46 @@ class Camera:
 				if grabResult.GrabSucceeded():
 					yield self.converter.convert(grabResult)
 			self.pylonCamera.StopGrabbing()
-		self.close()
+		self.pylonCamera.Close()
 	
 	def stop(self):
 		self.grabbing = False
 	
 	def snap(self):
-		self.open()
+		self.pylonCamera.Open()
 		self.loadParams(self.snapParamsFile)
 		self.pylonCamera.StartGrabbing(pylon.GrabStrategy_OneByOne)
 		grabResult = self.grabNext()
 		self.pylonCamera.StopGrabbing()
-		self.close()
+		self.pylonCamera.Close()
 		return self.converter.convert(grabResult)
-
-class Device:
-	def __init__(self, pylonDeviceInfo):
-		self.pylonDeviceInfo = pylonDeviceInfo
 	
-	def __repr__(self):
-		return "<Device: '%s'>" % self.name
+	def toDict(self):
+		return {
+			"device": self.device,
+			"nick": self.nick,
+			"grabParamsFile": self.grabParamsFile,
+			"snapParamsFile": self.snapParamsFile
+		}
 	
-	def __eq__(self, other):
-		return isinstance(other, Device) and self.name == other.name
+	def toJSON(self, fn):
+		with open(fn, "w") as fp:
+			json.dump(self.toDict())
 	
-	@property
-	def name(self):
-		return self.pylonDeviceInfo.GetFriendlyName()
+	@classmethod
+	def fromDict(cls, d):
+		return cls(
+			d["device"],
+			nick=d["nick"],
+			grabParamsFile=d["grabParamsFile"],
+			snapParamsFile=d["snapParamsFile"]
+		)
+	
+	@classmethod
+	def fromJSON(cls, fn):
+		with open(fn) as fp:
+			d = json.load(fp)
+		return cls.fromDict(d)
 
 class CameraWorker(QObject):
 	
@@ -212,6 +232,17 @@ def getCameraDevices(maxDevices=-1):
 	pylonDeviceInfos = tlFactory.EnumerateDevices()
 	if maxDevices >= 0:
 		pylonDeviceInfos = pylonDeviceInfos[0:maxDevices]
+	devices = [pdi.GetFriendlyName() for pdi in pylonDeviceInfos]
+	devices.sort()
+	return devices
+
+"""
+def getCameraDevices(maxDevices=-1):
+	tlFactory = pylon.TlFactory.GetInstance()
+	pylonDeviceInfos = tlFactory.EnumerateDevices()
+	if maxDevices >= 0:
+		pylonDeviceInfos = pylonDeviceInfos[0:maxDevices]
 	devices = [Device(pdi) for pdi in pylonDeviceInfos]
 	devices.sort(key=lambda d: d.name)
 	return devices
+"""

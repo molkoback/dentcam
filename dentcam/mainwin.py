@@ -31,11 +31,9 @@ class MainWin(QMainWindow):
 		self.options = OptionsWin(self)
 		self.options.saveSignal.connect(self.saveOptionsSlot)
 		
-		self.devices = []
-		self.deviceComboBox = QComboBox()
-		self.cfgFiles = []
-		self.cfgComboBox = QComboBox()
-		self.deviceCfg = {}
+		self.cameras = []
+		self.cameraComboBox = QComboBox()
+		self.loadCameras()
 		
 		self.folderLineEdit = QLineEdit()
 		
@@ -77,15 +75,9 @@ class MainWin(QMainWindow):
 		
 		hbox = QHBoxLayout()
 		
-		self.updateDevices()
-		hbox.addWidget(QLabel("Device:"))
-		self.deviceComboBox.currentIndexChanged.connect(self.deviceChangedSlot)
-		hbox.addWidget(self.deviceComboBox)
-		
-		self.updateCfgFiles()
-		hbox.addWidget(QLabel("Config File:"))
-		self.cfgComboBox.currentIndexChanged.connect(self.cfgChangedSlot)
-		hbox.addWidget(self.cfgComboBox)
+		hbox.addWidget(QLabel("Camera:"))
+		self.cameraComboBox.currentIndexChanged.connect(self.cameraChangedSlot)
+		hbox.addWidget(self.cameraComboBox)
 		
 		hbox.addStretch()
 		hbox.addWidget(QLabel("Folder:"))
@@ -94,7 +86,7 @@ class MainWin(QMainWindow):
 		
 		vbox.addLayout(hbox)
 		
-		self.setCamera(self.devices[0], self.cfgFiles[0])
+		self.setCamera(None)
 		vbox.addWidget(self.camLabel)
 		self.imgLabel.setImage(QImage(os.path.join(data_path, "img", "images.png")))
 		vbox.addWidget(self.imgLabel)
@@ -102,30 +94,21 @@ class MainWin(QMainWindow):
 		self.setCentralWidget(w)
 		self.restoreGeometry(self.options.geometry)
 	
-	def updateDevices(self):
-		self.devices = [None] + getCameraDevices()
+	def loadCameras(self):
+		path = os.path.join(self.options.cfgPath, "*.json")
+		cameras = [Camera.fromJSON(fn) for fn in glob.glob(path)]
+		cameras.sort(key=lambda cam: cam.name)
+		self.cameras = [None] + cameras
 		
 		# Update QComboBox
-		items = ["None"] + [device.name for device in self.devices[1:]]
-		self.deviceComboBox.clear()
-		self.deviceComboBox.addItems(items)
+		items = ["None"] + [cam.name for cam in cameras]
+		self.cameraComboBox.clear()
+		self.cameraComboBox.addItems(items)
 		
 		# Add shortcuts for cameras
-		for i in range(len(self.devices)):
-			f = functools.partial(self.deviceComboBox.setCurrentIndex, i)
+		for i in range(len(self.cameras)):
+			f = functools.partial(self.cameraComboBox.setCurrentIndex, i)
 			self.addAction(Action(self, "", f, "Ctrl+%d" % i))
-	
-	def updateCfgFiles(self):
-		path = os.path.join(self.options.cfgPath, "*.pfs")
-		self.cfgFiles = [None] + glob.glob(path)
-		
-		# Update QComboBox
-		self.cfgComboBox.clear()
-		items = ["Default"] + [os.path.split(f)[1] for f in self.cfgFiles[1:]]
-		self.cfgComboBox.addItems(items)
-		
-		# Reset device specific config
-		self.deviceCfg = {}
 	
 	def close(self):
 		if self.camControl:
@@ -194,28 +177,29 @@ class MainWin(QMainWindow):
 			msg.format(QApplication.applicationName(), QApplication.applicationVersion())
 		)
 	
-	def setCamera(self, device, cfg):
+	def setCamera(self, cam):
 		# Stop the current camera
+		self.snapAction.setEnabled(False)
 		if self.camControl:
 			self.camControl.stopGrab()
 			self.camControl = None
 		
 		# Show blank image if we don't have camera
-		if device == None:
+		if cam == None:
 			self.camLabel.setImage(QImage(os.path.join(data_path, "img", "camera.png")))
 			self.snapAction.setEnabled(False)
 			return True
 		
 		# Try to open camera
 		try:
-			kwargs = {"snapParamsFile": cfg} if cfg else {}
-			cam = Camera(device, **kwargs)
+			if not cam.open():
+				raise Exception()
 			self.camControl = CameraControl(self, self.camLabel, cam)
 			self.camControl.startGrab()
 		except:
-			QMessageBox.critical(self, "Couldn't Open Camera", "Couldn't Open Camera '%s'." % device.name)
+			QMessageBox.critical(self, "Couldn't Open Camera", "Couldn't Open Camera '%s'." % cam.name)
 			self.camControl = None
-			self.setCamera(None, cfg)
+			self.setCamera(None)
 			return False
 		
 		# Enable snapping
@@ -223,30 +207,13 @@ class MainWin(QMainWindow):
 		return True
 	
 	@pyqtSlot(int)
-	def deviceChangedSlot(self, index):
-		di = self.deviceComboBox.currentIndex()
-		cfgi = self.cfgComboBox.currentIndex()
-		if di < 0 or cfgi < 0:
-			return
-		
-		if di in self.deviceCfg:
-			cfgi = self.deviceCfg[di]
-		self.cfgComboBox.setCurrentIndex(cfgi)
-		self.setCamera(self.devices[di], self.cfgFiles[cfgi])
-	
-	@pyqtSlot(int)
-	def cfgChangedSlot(self, index):
-		di = self.deviceComboBox.currentIndex()
-		cfgi = self.cfgComboBox.currentIndex()
-		if di < 0 or cfgi < 0:
-			return
-		
-		self.deviceCfg[di] = cfgi
-		self.setCamera(self.devices[di], self.cfgFiles[cfgi])
+	def cameraChangedSlot(self, index):
+		if index >= 0:
+			self.setCamera(self.cameras[index])
 	
 	@pyqtSlot()
 	def saveOptionsSlot(self):
-		self.updateCfgFiles()
+		self.loadCameras()
 	
 	def closeEvent(self, e):
 		self.options.geometry = self.saveGeometry()
