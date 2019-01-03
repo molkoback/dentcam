@@ -159,7 +159,7 @@ class MainWin(QMainWindow):
 		path = QFileDialog.getSaveFileName(
 			self,
 			"Save Image",
-			self.snapshotPath(), "Image File (*.png *.jpg *.bmp)"
+			self.options.outputPath, "Image File (*.png *.jpg *.bmp)"
 		)
 		if path[0]:
 			self.saveImage(path[0])

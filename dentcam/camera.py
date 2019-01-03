@@ -108,7 +108,7 @@ class Camera:
 	
 	def toJSON(self, fn):
 		with open(fn, "w") as fp:
-			json.dump(self.toDict())
+			json.dump(self.toDict(), fp)
 	
 	@classmethod
 	def fromDict(cls, d):
@@ -235,14 +235,3 @@ def getCameraDevices(maxDevices=-1):
 	devices = [pdi.GetFriendlyName() for pdi in pylonDeviceInfos]
 	devices.sort()
 	return devices
-
-"""
-def getCameraDevices(maxDevices=-1):
-	tlFactory = pylon.TlFactory.GetInstance()
-	pylonDeviceInfos = tlFactory.EnumerateDevices()
-	if maxDevices >= 0:
-		pylonDeviceInfos = pylonDeviceInfos[0:maxDevices]
-	devices = [Device(pdi) for pdi in pylonDeviceInfos]
-	devices.sort(key=lambda d: d.name)
-	return devices
-"""
