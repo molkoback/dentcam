@@ -33,6 +33,7 @@ class MainWin(QMainWindow):
 		
 		self.cameras = []
 		self.cameraComboBox = QComboBox()
+		self.camActions = []
 		self.loadCameras()
 		
 		self.folderLineEdit = QLineEdit()
@@ -96,12 +97,17 @@ class MainWin(QMainWindow):
 		self.restoreGeometry(self.options.geometry)
 	
 	def loadCameras(self):
+		# Clear old shortcuts
+		for action in self.camActions:
+			self.removeAction(action)
+		
+		# Read camera files
 		path = os.path.join(self.options.cfgPath, "*.json")
 		cameras = [Camera.fromJSON(fn) for fn in glob.glob(path)]
 		cameras.sort(key=lambda cam: cam.name)
 		self.cameras = [None] + cameras
 		
-		# Update QComboBox
+		# Update our camera combo box
 		items = ["None"] + [cam.name for cam in cameras]
 		self.cameraComboBox.clear()
 		self.cameraComboBox.addItems(items)
@@ -109,7 +115,9 @@ class MainWin(QMainWindow):
 		# Add shortcuts for cameras
 		for i in range(len(self.cameras)):
 			f = functools.partial(self.cameraComboBox.setCurrentIndex, i)
-			self.addAction(Action(self, "", f, "Ctrl+%d" % i))
+			action = Action(self, "", f, "Ctrl+%d" % i)
+			self.addAction(action)
+			self.camActions.append(action)
 	
 	def close(self):
 		if self.camControl:
